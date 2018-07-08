@@ -71,7 +71,7 @@ try:
         
         fuelStatusCmd = obd.commands.FUEL_STATUS
         fuelStatusRsp = connection.query(fuelStatusCmd)
-        prunt("Fuel System Status: " + str(fuelStatusRsp.value))
+        print("Fuel System Status: " + str(fuelStatusRsp.value))
         
         time.sleep(5)
     
