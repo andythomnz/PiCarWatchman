@@ -6,9 +6,12 @@ from time import *
 import time
 import threading
 import obd
+import math
+import sqlite3
  
 gpsd = None
 obdConnection = obd.OBD("/dev/ttyUSB5")
+db = sqlite3.connect('data/mydb')
  
 class PiCarWatchmanGPS(threading.Thread):
     def __init__(self):
@@ -18,12 +21,45 @@ class PiCarWatchmanGPS(threading.Thread):
         self.current_value = None
         self.running = True
  
-  def run(self):
-    global gpsd
-    while gpsp.running:
-        gpsd.next() #this will continue to loop and grab EACH set of gpsd info to clear the buffer
+    def run(self):
+        global gpsd
+        while gpsp.running:
+            gpsd.next() #this will continue to loop and grab EACH set of gpsd info to clear the buffer
  
 if __name__ == '__main__':
+    
+    # prepare the database
+    cursor = db.cursor()
+    cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS `car_data` (
+                      `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
+                      `created` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
+                      `acc` tinyint(1) DEFAULT NULL,
+                      `voltage` double DEFAULT NULL,
+                      `latitude` double DEFAULT NULL,
+                      `longitude` double DEFAULT NULL,
+                      `altitude` double DEFAULT NULL,
+                      `speed` double DEFAULT NULL,
+                      `obd_speed` int(11) DEFAULT NULL,
+                      `obd_dtc_reset_dist` int(11) DEFAULT NULL,
+                      `obd_coolant_temp` int(11) DEFAULT NULL,
+                      `obd_rel_throttle_pos` int(11) DEFAULT NULL,
+                      `obd_ambient_air_temp` int(11) DEFAULT NULL,
+                      `obd_ltft` int(11) DEFAULT NULL,
+                      `obd_stft` int(11) DEFAULT NULL,
+                      `obd_intake_air_temp` int(11) DEFAULT NULL,
+                      `obd_intake_man_pressure` int(11) DEFAULT NULL,
+                      `obd_engine_load` int(11) DEFAULT NULL,
+                      `obd_rpm` int(11) DEFAULT NULL,
+                      `obd_MIL` tinyint(1) DEFAULT NULL,
+                      `obd_dtc_count` int(11) DEFAULT NULL,
+                      `obd_dtc_info` longtext,
+                      `obd_engine_runtime` int(11) NOT NULL,
+                      `obd_fuel_status` varchar(150) NOT NULL
+                    )
+                       ''')
+    db.commit()
+    
     gpsp = PiCarWatchmanGPS() # create the GPS thread
     try:
         gpsp.start() # start the GPS thread
@@ -33,91 +69,279 @@ if __name__ == '__main__':
             now = time.strftime('%Y-%m-%d %H:%M:%S')
             print("Current TimeStamp: " + str(now))
 
-            print
-            print ' GPS reading'
-            print '----------------------------------------'
-            print 'latitude    ' , gpsd.fix.latitude
-            print 'longitude   ' , gpsd.fix.longitude
-            print 'time utc    ' , gpsd.utc,' + ', gpsd.fix.time
-            print 'altitude (m)' , gpsd.fix.altitude
-            print 'eps         ' , gpsd.fix.eps
-            print 'epx         ' , gpsd.fix.epx
-            print 'epv         ' , gpsd.fix.epv
-            print 'ept         ' , gpsd.fix.ept
-            print 'speed (m/s) ' , gpsd.fix.speed
-            print 'climb       ' , gpsd.fix.climb
-            print 'track       ' , gpsd.fix.track
-            print 'mode        ' , gpsd.fix.mode
-            print
-            print 'sats        ' , gpsd.satellites
-
+            #print
+            #print ' GPS reading'
+            #print '----------------------------------------'
+            #print 'latitude    ' , gpsd.fix.latitude
+            #print 'longitude   ' , gpsd.fix.longitude
+            #print 'time utc    ' , gpsd.utc,' + ', gpsd.fix.time
+            #print 'altitude (m)' , gpsd.fix.altitude
+            #print 'eps         ' , gpsd.fix.eps
+            #print 'epx         ' , gpsd.fix.epx
+            #print 'epv         ' , gpsd.fix.epv
+            #print 'ept         ' , gpsd.fix.ept
+            #print 'speed (m/s) ' , gpsd.fix.speed
+            #print 'climb       ' , gpsd.fix.climb
+            #print 'track       ' , gpsd.fix.track
+            #print 'mode        ' , gpsd.fix.mode
+            #print
+            #print 'sats        ' , gpsd.satellites
+            
+            latitude = 123456789
+            if gpsd.fix.latitude != 0:
+                latitude = gpsd.fix.latitude
+            print("Latitude: " + str(latitude))
+            
+            longitude = 123456789
+            if gpsd.fix.longitude != 0:
+                longitude = gpsd.fix.longitude
+            print("Longitude: " + str(longitude))   
+        
+            altitude = -123456789
+            if !math.isnan(gpsd.fix.altitude):
+                altitude = gpsd.fix.altitude
+            print("Altitude: " + str(altitude))
+            
+            speed = -1
+            if !math.isnan(gpsd.fix.speed):
+                speed = (gpsd.fix.speed * 18)/5 #converting to km/h
+            print("GPS Speed: " + str(speed))
+                
             #OBD Data
             
+            voltageCmd = obd.commands.ELM_VOLTAGE
+            voltageRsp = obdConnection.query(voltageCmd)
+            try:
+                voltageValue = voltageRsp.value.magnitude
+            except:
+                voltageValue = -1
+            print("Voltage: " + str(voltageValue))
+            
             speedCmd = obd.commands.SPEED
-            speedRsp = connection.query(speedCmd)
-            print("Speed: " + str(speedRsp.value.magnitude))
+            speedRsp = obdConnection.query(speedCmd)
+            try:
+                speedValue = speedRsp.value.magnitude
+            except:
+                speedValue = -1
+            print("Speed: " + str(speedValue))
 
             distanceClrCmd = obd.commands.DISTANCE_SINCE_DTC_CLEAR
-            distanceClrRsp = connection.query(distanceClrCmd)
-            print("Distance since DTCs cleared: " + str(distanceClrRsp.value.magnitude))
+            distanceClrRsp = obdConnection.query(distanceClrCmd)
+            try:
+                distanceClrValue = distanceClrRsp.value.magnitude
+            except:
+                distanceClrValue = -1
+            print("Distance since DTCs cleared: " + str(distanceClrValue))
 
             coolantTempCmd = obd.commands.COOLANT_TEMP
-            coolantTempRsp = connection.query(coolantTempCmd)
-            print("Coolant Temperature: " + str(coolantTempRsp.value.magnitude))
+            coolantTempRsp = obdConnection.query(coolantTempCmd)
+            try:
+                coolantTempValue = coolantTempRsp.value.magnitude
+            except:
+                coolantTempValue = -1
+            print("Coolant Temperature: " + str(coolantTempValue))
 
             relThrottlePosCmd = obd.commands.RELATIVE_THROTTLE_POS
-            relThrottlePosRsp = connection.query(relThrottlePosCmd)
-            print("Relative Throttle Position: " + str(relThrottlePosRsp.value.magnitude))
+            relThrottlePosRsp = obdConnection.query(relThrottlePosCmd)
+            try:
+                relThrottlePosValue = relThrottlePosRsp.value.magnitude
+            except:
+                relThrottlePosValue = -1
+            print("Relative Throttle Position: " + str(relThrottlePosValue))
 
             ambientAirTempCmd = obd.commands.AMBIANT_AIR_TEMP
-            ambientAirTempRsp = connection.query(ambientAirTempCmd)
-            print("Ambient Air Temperature: " + str(ambientAirTempRsp.value.magnitude))
+            ambientAirTempRsp = obdConnection.query(ambientAirTempCmd)
+            try:
+                ambientAirTempValue = ambientAirTempRsp.value.magnitude
+            except:
+                ambientAirTempValue = -1
+            print("Ambient Air Temperature: " + str(ambientAirTempValue))
 
             ltftCmd = obd.commands.LONG_FUEL_TRIM_1
-            ltftRsp = connection.query(ltftCmd)
-            print("Long term fuel trim: " + str(ltftRsp.value.magnitude))
+            ltftRsp = obdConnection.query(ltftCmd)
+            try:
+                ltftValue = lftfRsp.value.magnitude
+            except:
+                ltftValue = -1
+            print("Long term fuel trim: " + str(ltftValue))
 
             stftCmd = obd.commands.SHORT_FUEL_TRIM_1
-            stftRsp = connection.query(stftCmd)
-            print("Short term fuel trim: " + str(stftRsp.value.magnitude))
+            stftRsp = obdConnection.query(stftCmd)
+            try:
+                stftValue = stftRsp.value.magnitude
+            except:
+                stftValue = -1
+            print("Short term fuel trim: " + str(stftValue))
 
             intakeTempCmd = obd.commands.INTAKE_TEMP
-            intakeTempRsp = connection.query(intakeTempCmd)
-            print("Intake temperature: " + str(intakeTempRsp.value.magnitude))
+            intakeTempRsp = obdConnection.query(intakeTempCmd)
+            try:
+                intakeTempValue = intakeTempRsp.value.magnitude
+            except:
+                intakeTempValue = -1
+            print("Intake temperature: " + str(intakeTempValue))
 
             intakePressCmd = obd.commands.INTAKE_PRESSURE
-            intakePressRsp = connection.query(intakePressCmd)
-            print("Intake pressure: " + str(intakePressRsp.value.magnitude))
+            intakePressRsp = obdConnection.query(intakePressCmd)
+            try:
+                intakePressValue = intakePressRsp.value.magnitude
+            except:
+                intakePressValue = -1
+            print("Intake pressure: " + str(intakePressValue))
 
             engineLoadCmd = obd.commands.ENGINE_LOAD
-            engineLoadRsp = connection.query(engineLoadCmd)
-            print("Engine load: " + str(engineLoadRsp.value.magnitude))
+            engineLoadRsp = obdConnection.query(engineLoadCmd)
+            try:
+                engineLoadValue = engineLoadRsp.value.magnitude
+            except:
+                engineLoadValue = -1
+            print("Engine load: " + str(engineLoadValue))
 
             rpmCmd = obd.commands.RPM
-            rpmRsp = connection.query(rpmCmd)
-            print("RPM: " + str(rpmRsp.value.magnitude))
+            rpmRsp = obdConnection.query(rpmCmd)
+            try:
+                rpmValue = rpmRsp.value.magnitude
+            except:
+                rpmValue = -1
+            print("RPM: " + str(rpmValue))
 
             statusCmd = obd.commands.STATUS
-            statusRsp = connection.query(statusCmd)
-            print("MIL Iluminated: " + str(statusRsp.value.MIL))
-            print("Stored DTCs: " + str(statusRsp.value.DTC_count))
+            statusRsp = obdConnection.query(statusCmd)
+            try:
+                milValue = statusRsp.value.MIL
+                dtcCountValue = statusRsp.value.DTC_count
+            except:
+                milValue = -1
+                dtcCountValue = -1
+            print("MIL Iluminated: " + str(milValue))
+            print("Stored DTCs: " + str(dtcCountValue))
 
             getDtcCmd = obd.commands.GET_DTC
-            getDtcRsp = connection.query(getDtcCmd)
-            print("Summary of DTCs: " + str(getDtcRsp.value))
+            getDtcRsp = obdConnection.query(getDtcCmd)
+            try:
+                dtcText = getDtcRsp.value
+            except:
+                dtcText = "Unable to communicate with vehicle"
+            print("Summary of DTCs: " + str(dtcText))
 
             runTimeCmd = obd.commands.RUN_TIME
-            runTimeRsp = connection.query(runTimeCmd)
-            print("Runtime: " + str(runTimeRsp.value.magnitude))
+            runTimeRsp = obdConnection.query(runTimeCmd)
+            try:
+                runTimeValue = runTimeRsp.value.magnitude
+            except:
+                runTimeValue = -1
+            print("Runtime: " + str(runTimeValue))
 
             fuelStatusCmd = obd.commands.FUEL_STATUS
-            fuelStatusRsp = connection.query(fuelStatusCmd)
-            print("Fuel System Status: " + str(fuelStatusRsp.value))
+            fuelStatusRsp = obdConnection.query(fuelStatusCmd)
+            try:
+                fuelStatusValue = fuelStatusRsp.value
+            except:
+                fuelStatusValue = "Unable to communicate with vehicle"
+            print("Fuel System Status: " + str(fuelStatusValue))
+            
+            acc = false
+            if speedValue > -1:
+                acc = true
+            
+            #Add to local database
+            print("Begin to add data record to local database")
 
+            cursor.execute('''INSERT INTO car_data(created, 
+                                                    acc, 
+                                                    voltage, 
+                                                    latitude,
+                                                    longitude,
+                                                    altitude,
+                                                    speed,
+                                                    obd_speed,
+                                                    obd_dtc_reset_dist,
+                                                    obd_coolant_temp,
+                                                    obd_rel_throttle_pos,
+                                                    obd_ambient_air_temp,
+                                                    obd_ltft,
+                                                    obd_stft,
+                                                    obd_intake_air_temp,
+                                                    obd_intake_man_pressure,
+                                                    obd_engine_load,
+                                                    obd_rpm,
+                                                    obd_MIL,
+                                                    obd_dtc_count,
+                                                    obd_dtc_info,
+                                                    obd_engine_runtime,
+                                                    obd_fuel_status)
+                  VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''', (
+                                                    now,                    # row[1]
+                                                    acc,                    # row[2]
+                                                    voltageValue,           # row[3]
+                                                    latitude,               # row[4]
+                                                    longitude,              # row[5]
+                                                    altitude,               # row[6]
+                                                    speed,                  # row[7]
+                                                    speedValue,             # row[8]
+                                                    distanceClrValue,       # row[9]
+                                                    coolantTempValue,       # row[10]
+                                                    relThrottlePosValue,    # row[11]
+                                                    ambientAirTempValue,    # row[12]
+                                                    ltftValue,              # row[13]
+                                                    stftValue,              # row[14]
+                                                    intakeTempValue,        # row[15]
+                                                    intakePressValue,       # row[16]
+                                                    engineLoadValue,        # row[17]
+                                                    rpmValue,               # row[18]
+                                                    milValue,               # row[19]
+                                                    dtcCountValue,          # row[20]
+                                                    dtcText,                # row[21]
+                                                    runTimeValue,           # row[22]
+                                                    fuelStatusValue))       # row[23]
+            db.commit()
+
+
+            #Try to upload local database to remote database
+            print("Begin uploading local database to remote database")
+
+            cursor.execute('''SELECT * FROM car_data''')
+            allRecords = cursor.fetchall()
+            for record in allRecords:
+                # row[0] returns the first column in the query (id), row[1] returns the 'now' column
+                url = ("http://www.mgt.co.nz/picarwatchman/newcardata.php?"
+                       + "created=" + row[1] + "&"
+                       + "acc=" + row[2] + "&"
+                       + "voltage=" + row[3] + "&"
+                       + "latitude=" + row[4] + "&"
+                       + "longitude=" + row[5] + "&"
+                       + "altitude=" + row[6] + "&"
+                       + "speed=" + row[7] + "&"
+                       + "obd_speed=" + row[8] + "&"
+                       + "obd_dtc_reset_dist=" + row[9] + "&"
+                       + "obd_coolant_temp=" + row[10] + "&"
+                       + "obd_rel_throttle_pos=" + row[11] + "&"
+                       + "obd_ambient_air_temp=" + row[12] + "&"
+                       + "obd_ltft=" + row[13] + "&"
+                       + "obd_stft=" + row[14] + "&"
+                       + "obd_intake_air_temp=" + row[15] + "&"
+                       + "obd_intake_man_pressure=" + row[16] + "&"
+                       + "obd_engine_load=" + row[17] + "&"
+                       + "obd_rpm=" + row[18] + "&"
+                       + "obd_MIL=" + row[19] + "&"
+                       + "obd_dtc_count=" + row[20] + "&"
+                       + "obd_dtc_info=" + row[21] + "&"
+                       + "obd_engine_runtime=" + row[22] + "&"
+                       + "obd_fuel_status=" + row[23])
+
+                print("URL formed as: " + url)
+
+                #make http request using URL and capture the HTTP status code
+
+                #if successful, remove the row from the local database
+
+            
+            #Pause for a few seconds before repeating
             time.sleep(10) #set to whatever
  
-  except (KeyboardInterrupt, SystemExit): #when you press ctrl+c
-    print "\nKilling Thread..."
-    gpsp.running = False
-    gpsp.join() # wait for the thread to finish what it's doing
-    print "Done.\nExiting."
+    except (KeyboardInterrupt, SystemExit): #when you press ctrl+c
+        print "\nKilling Thread..."
+        db.close()
+        gpsp.running = False
+        gpsp.join() # wait for the thread to finish what it's doing
+        print "Done.\nExiting."
