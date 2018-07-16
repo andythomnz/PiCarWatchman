@@ -3,15 +3,18 @@
 import os
 from gps import *
 from time import *
+from pytz import timezone
+from datetime import datetime
 import time
 import threading
 import obd
 import math
 import sqlite3
+import requests
  
 gpsd = None
 obdConnection = obd.OBD("/dev/ttyUSB5")
-db = sqlite3.connect('data/mydb')
+db = sqlite3.connect('mydb')
  
 class PiCarWatchmanGPS(threading.Thread):
     def __init__(self):
@@ -32,7 +35,7 @@ if __name__ == '__main__':
     cursor = db.cursor()
     cursor.execute('''
                     CREATE TABLE IF NOT EXISTS `car_data` (
-                      `id` int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
+                      `id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
                       `created` timestamp NOT NULL DEFAULT '0000-00-00 00:00:00',
                       `acc` tinyint(1) DEFAULT NULL,
                       `voltage` double DEFAULT NULL,
@@ -40,22 +43,22 @@ if __name__ == '__main__':
                       `longitude` double DEFAULT NULL,
                       `altitude` double DEFAULT NULL,
                       `speed` double DEFAULT NULL,
-                      `obd_speed` int(11) DEFAULT NULL,
+                      `obd_speed` double DEFAULT NULL,
                       `obd_dtc_reset_dist` int(11) DEFAULT NULL,
                       `obd_coolant_temp` int(11) DEFAULT NULL,
                       `obd_rel_throttle_pos` int(11) DEFAULT NULL,
-                      `obd_ambient_air_temp` int(11) DEFAULT NULL,
-                      `obd_ltft` int(11) DEFAULT NULL,
-                      `obd_stft` int(11) DEFAULT NULL,
-                      `obd_intake_air_temp` int(11) DEFAULT NULL,
-                      `obd_intake_man_pressure` int(11) DEFAULT NULL,
-                      `obd_engine_load` int(11) DEFAULT NULL,
+                      `obd_ambient_air_temp` double DEFAULT NULL,
+                      `obd_ltft` double DEFAULT NULL,
+                      `obd_stft` double DEFAULT NULL,
+                      `obd_intake_air_temp` double DEFAULT NULL,
+                      `obd_intake_man_pressure` double DEFAULT NULL,
+                      `obd_engine_load` double DEFAULT NULL,
                       `obd_rpm` int(11) DEFAULT NULL,
                       `obd_MIL` tinyint(1) DEFAULT NULL,
                       `obd_dtc_count` int(11) DEFAULT NULL,
                       `obd_dtc_info` longtext,
                       `obd_engine_runtime` int(11) NOT NULL,
-                      `obd_fuel_status` varchar(150) NOT NULL
+                      `obd_fuel_status` INTEGER
                     )
                        ''')
     db.commit()
@@ -66,7 +69,8 @@ if __name__ == '__main__':
         while True:
             os.system('clear')
             
-            now = time.strftime('%Y-%m-%d %H:%M:%S')
+            florida = timezone('US/Eastern')
+            now = datetime.now(florida).strftime('%Y-%m-%d %H:%M:%S')
             print("Current TimeStamp: " + str(now))
 
             #print
@@ -98,12 +102,12 @@ if __name__ == '__main__':
             print("Longitude: " + str(longitude))   
         
             altitude = -123456789
-            if !math.isnan(gpsd.fix.altitude):
+            if not(math.isnan(gpsd.fix.altitude)):
                 altitude = gpsd.fix.altitude
             print("Altitude: " + str(altitude))
             
             speed = -1
-            if !math.isnan(gpsd.fix.speed):
+            if not(math.isnan(gpsd.fix.speed)):
                 speed = (gpsd.fix.speed * 18)/5 #converting to km/h
             print("GPS Speed: " + str(speed))
                 
@@ -235,19 +239,23 @@ if __name__ == '__main__':
             fuelStatusCmd = obd.commands.FUEL_STATUS
             fuelStatusRsp = obdConnection.query(fuelStatusCmd)
             try:
-                fuelStatusValue = fuelStatusRsp.value
+                #fuelStatusValue = str(fuelStatusRsp.value[0])
+                fuelStatusValue = "hi"
             except:
                 fuelStatusValue = "Unable to communicate with vehicle"
+            if fuelStatusValue == None:
+                    fuelStatusValue = "Unavailable"
             print("Fuel System Status: " + str(fuelStatusValue))
             
-            acc = false
+            acc = False
             if speedValue > -1:
                 acc = true
             
             #Add to local database
             print("Begin to add data record to local database")
 
-            cursor.execute('''INSERT INTO car_data(created, 
+            cursor.execute('''INSERT INTO car_data(
+                                                    created, 
                                                     acc, 
                                                     voltage, 
                                                     latitude,
@@ -270,7 +278,8 @@ if __name__ == '__main__':
                                                     obd_dtc_info,
                                                     obd_engine_runtime,
                                                     obd_fuel_status)
-                  VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''', (
+                  VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''', (
+                                                    
                                                     now,                    # row[1]
                                                     acc,                    # row[2]
                                                     voltageValue,           # row[3]
@@ -302,38 +311,44 @@ if __name__ == '__main__':
 
             cursor.execute('''SELECT * FROM car_data''')
             allRecords = cursor.fetchall()
-            for record in allRecords:
+            for row in allRecords:
                 # row[0] returns the first column in the query (id), row[1] returns the 'now' column
                 url = ("http://www.mgt.co.nz/picarwatchman/newcardata.php?"
-                       + "created=" + row[1] + "&"
-                       + "acc=" + row[2] + "&"
-                       + "voltage=" + row[3] + "&"
-                       + "latitude=" + row[4] + "&"
-                       + "longitude=" + row[5] + "&"
-                       + "altitude=" + row[6] + "&"
-                       + "speed=" + row[7] + "&"
-                       + "obd_speed=" + row[8] + "&"
-                       + "obd_dtc_reset_dist=" + row[9] + "&"
-                       + "obd_coolant_temp=" + row[10] + "&"
-                       + "obd_rel_throttle_pos=" + row[11] + "&"
-                       + "obd_ambient_air_temp=" + row[12] + "&"
-                       + "obd_ltft=" + row[13] + "&"
-                       + "obd_stft=" + row[14] + "&"
-                       + "obd_intake_air_temp=" + row[15] + "&"
-                       + "obd_intake_man_pressure=" + row[16] + "&"
-                       + "obd_engine_load=" + row[17] + "&"
-                       + "obd_rpm=" + row[18] + "&"
-                       + "obd_MIL=" + row[19] + "&"
-                       + "obd_dtc_count=" + row[20] + "&"
-                       + "obd_dtc_info=" + row[21] + "&"
-                       + "obd_engine_runtime=" + row[22] + "&"
-                       + "obd_fuel_status=" + row[23])
+                       + "created=" + str(row[1]) + "&"
+                       + "acc=" + str(row[2]) + "&"
+                       + "voltage=" + str(row[3]) + "&"
+                       + "latitude=" + str(row[4]) + "&"
+                       + "longitude=" + str(row[5]) + "&"
+                       + "altitude=" + str(row[6]) + "&"
+                       + "speed=" + str(row[7]) + "&"
+                       + "obd_speed=" + str(row[8]) + "&"
+                       + "obd_dtc_reset_dist=" + str(row[9]) + "&"
+                       + "obd_coolant_temp=" + str(row[10]) + "&"
+                       + "obd_rel_throttle_pos=" + str(row[11]) + "&"
+                       + "obd_ambient_air_temp=" + str(row[12]) + "&"
+                       + "obd_ltft=" + str(row[13]) + "&"
+                       + "obd_stft=" + str(row[14]) + "&"
+                       + "obd_intake_air_temp=" + str(row[15]) + "&"
+                       + "obd_intake_man_pressure=" + str(row[16]) + "&"
+                       + "obd_engine_load=" + str(row[17]) + "&"
+                       + "obd_rpm=" + str(row[18]) + "&"
+                       + "obd_MIL=" + str(row[19]) + "&"
+                       + "obd_dtc_count=" + str(row[20]) + "&"
+                       + "obd_dtc_info=" + str(row[21]) + "&"
+                       + "obd_engine_runtime=" + str(row[22]) + "&"
+                       + "obd_fuel_status=" + str(row[23]))
 
                 print("URL formed as: " + url)
 
                 #make http request using URL and capture the HTTP status code
+                r = requests.get(url)
+                print("Status Code: " + str(r.status_code))
 
                 #if successful, remove the row from the local database
+                if str(r.status_code).startswith('2'):
+                    print("Upload Success!")
+                    cursor.execute('''DELETE FROM car_data WHERE id = ? ''',(row[0],))
+                    db.commit()
 
             
             #Pause for a few seconds before repeating
