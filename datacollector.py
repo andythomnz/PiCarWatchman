@@ -13,7 +13,8 @@ import sqlite3
 import requests
  
 gpsd = None
-obdConnection = obd.OBD("/dev/ttyUSB5")
+obdPort = "/dev/ttyUSB1" 
+obdConnection = obd.OBD(obdPort)
 db = sqlite3.connect('mydb')
  
 class PiCarWatchmanGPS(threading.Thread):
@@ -113,12 +114,13 @@ if __name__ == '__main__':
                 
             #OBD Data
             
-            voltageCmd = obd.commands.ELM_VOLTAGE
-            voltageRsp = obdConnection.query(voltageCmd)
-            try:
-                voltageValue = voltageRsp.value.magnitude
-            except:
-                voltageValue = -1
+            #voltageCmd = obd.commands.ELM_VOLTAGE
+            #voltageRsp = obdConnection.query(voltageCmd)
+            #try:
+            #    voltageValue = voltageRsp.value.magnitude
+            #except:
+            #    voltageValue = -1
+            voltageValue = -1
             print("Voltage: " + str(voltageValue))
             
             speedCmd = obd.commands.SPEED
@@ -223,7 +225,8 @@ if __name__ == '__main__':
             getDtcCmd = obd.commands.GET_DTC
             getDtcRsp = obdConnection.query(getDtcCmd)
             try:
-                dtcText = getDtcRsp.value
+                dtcList = getDtcRsp.value
+                dtcText = ','.join(map(str, dtcList))
             except:
                 dtcText = "Unable to communicate with vehicle"
             print("Summary of DTCs: " + str(dtcText))
@@ -239,8 +242,8 @@ if __name__ == '__main__':
             fuelStatusCmd = obd.commands.FUEL_STATUS
             fuelStatusRsp = obdConnection.query(fuelStatusCmd)
             try:
-                #fuelStatusValue = str(fuelStatusRsp.value[0])
-                fuelStatusValue = "hi"
+                fuelStatusValue = str(fuelStatusRsp.value[0])
+                #fuelStatusValue = "hi"
             except:
                 fuelStatusValue = "Unable to communicate with vehicle"
             if fuelStatusValue == None:
@@ -249,7 +252,7 @@ if __name__ == '__main__':
             
             acc = False
             if speedValue > -1:
-                acc = true
+                acc = True
             
             #Add to local database
             print("Begin to add data record to local database")
