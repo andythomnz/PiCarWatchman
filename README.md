@@ -8,9 +8,9 @@ A software application will analyse the data transmitted from the vehicle to gen
 * WoF, Service, and Registration reminders
 * Finds the start and end data-points for each vehicle journey.
 * Summarises statistics for each journey:
-..* Trip origin and destination.
-..* Plots the journey on a map.
-..* Time of departure, time of arrival, trip duration.
-..* Distance travelled.
-..* Quantity of fuel consumed and cost of trip.
-..* Average speed, and how much time was spent idling in traffic.
+   - Trip origin and destination.
+   - Plots the journey on a map.
+   - Time of departure, time of arrival, trip duration.
+   - Distance travelled.
+   - Quantity of fuel consumed and cost of trip.
+   - Average speed, and how much time was spent idling in traffic.
