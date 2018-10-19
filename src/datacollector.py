@@ -1,5 +1,3 @@
-
- 
 import os
 from gps import *
 from time import *
@@ -11,27 +9,33 @@ import obd
 import math
 import sqlite3
 import requests
- 
+
+softwareVersion = 1.0
+
 gpsd = None
 obdConnection = obd.OBD("/dev/ttyUSB1")
 db = sqlite3.connect('/home/pi/PiCarWatchman/src/database')
 
- 
+
+# Testing another change!
+
+
 class PiCarWatchmanGPS(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
         global gpsd
-        gpsd = gps(mode=WATCH_ENABLE) #starting the stream of info
+        gpsd = gps(mode=WATCH_ENABLE)  # starting the stream of info
         self.current_value = None
         self.running = True
- 
+
     def run(self):
         global gpsd
         while gpsp.running:
-            gpsd.next() #this will continue to loop and grab EACH set of gpsd info to clear the buffer
- 
+            gpsd.next()  # this will continue to loop and grab EACH set of gpsd info to clear the buffer
+
+
 if __name__ == '__main__':
-    
+
     # prepare the database
     cursor = db.cursor()
     cursor.execute('''
@@ -59,70 +63,71 @@ if __name__ == '__main__':
                       `obd_dtc_count` int(11) DEFAULT NULL,
                       `obd_dtc_info` longtext,
                       `obd_engine_runtime` int(11) NOT NULL,
-                      `obd_fuel_status` INTEGER
+                      `obd_fuel_status` INTEGER,
+                      'software_version' double DEFAULT NULL
                     )
                        ''')
     db.commit()
-    
-    gpsp = PiCarWatchmanGPS() # create the GPS thread
+
+    gpsp = PiCarWatchmanGPS()  # create the GPS thread
     try:
-        gpsp.start() # start the GPS thread
+        gpsp.start()  # start the GPS thread
         while True:
             os.system('clear')
-            
+
             florida = timezone('US/Eastern')
             now = datetime.now(florida).strftime('%Y-%m-%d %H:%M:%S')
             print("Current TimeStamp: " + str(now))
 
-            #print
-            #print ' GPS reading'
-            #print '----------------------------------------'
-            #print 'latitude    ' , gpsd.fix.latitude
-            #print 'longitude   ' , gpsd.fix.longitude
-            #print 'time utc    ' , gpsd.utc,' + ', gpsd.fix.time
-            #print 'altitude (m)' , gpsd.fix.altitude
-            #print 'eps         ' , gpsd.fix.eps
-            #print 'epx         ' , gpsd.fix.epx
-            #print 'epv         ' , gpsd.fix.epv
-            #print 'ept         ' , gpsd.fix.ept
-            #print 'speed (m/s) ' , gpsd.fix.speed
-            #print 'climb       ' , gpsd.fix.climb
-            #print 'track       ' , gpsd.fix.track
-            #print 'mode        ' , gpsd.fix.mode
-            #print
-            #print 'sats        ' , gpsd.satellites
-            
+            # print
+            # print ' GPS reading'
+            # print '----------------------------------------'
+            # print 'latitude    ' , gpsd.fix.latitude
+            # print 'longitude   ' , gpsd.fix.longitude
+            # print 'time utc    ' , gpsd.utc,' + ', gpsd.fix.time
+            # print 'altitude (m)' , gpsd.fix.altitude
+            # print 'eps         ' , gpsd.fix.eps
+            # print 'epx         ' , gpsd.fix.epx
+            # print 'epv         ' , gpsd.fix.epv
+            # print 'ept         ' , gpsd.fix.ept
+            # print 'speed (m/s) ' , gpsd.fix.speed
+            # print 'climb       ' , gpsd.fix.climb
+            # print 'track       ' , gpsd.fix.track
+            # print 'mode        ' , gpsd.fix.mode
+            # print
+            # print 'sats        ' , gpsd.satellites
+
             latitude = 123456789
             if gpsd.fix.latitude != 0:
                 latitude = gpsd.fix.latitude
             print("Latitude: " + str(latitude))
-            
+
             longitude = 123456789
             if gpsd.fix.longitude != 0:
                 longitude = gpsd.fix.longitude
-            print("Longitude: " + str(longitude))   
-        
+            print("Longitude: " + str(longitude))
+
             altitude = -123456789
-            if not(math.isnan(gpsd.fix.altitude)):
+            if not (math.isnan(gpsd.fix.altitude)):
                 altitude = gpsd.fix.altitude
             print("Altitude: " + str(altitude))
-            
+
             speed = -1
-            if not(math.isnan(gpsd.fix.speed)):
-                speed = (gpsd.fix.speed * 18)/5 #converting to km/h
+            if not (math.isnan(gpsd.fix.speed)):
+                speed = (gpsd.fix.speed * 18) / 5  # converting to km/h
             print("GPS Speed: " + str(speed))
-                
-            #OBD Data
-            
-            #voltageCmd = obd.commands.ELM_VOLTAGE
-            #voltageRsp = obdConnection.query(voltageCmd)
-            #try:
+
+            # OBD Data
+
+            # voltageCmd = obd.commands.ELM_VOLTAGE
+            # voltageRsp = obdConnection.query(voltageCmd)
+            # try:
             #    voltageValue = voltageRsp.value.magnitude
-            #except:
+            # except:
             #    voltageValue = -1
             voltageValue = -1
             print("Voltage: " + str(voltageValue))
-            
+
             speedCmd = obd.commands.SPEED
             speedRsp = obdConnection.query(speedCmd)
             try:
@@ -166,7 +171,7 @@ if __name__ == '__main__':
             ltftCmd = obd.commands.LONG_FUEL_TRIM_1
             ltftRsp = obdConnection.query(ltftCmd)
             try:
-                ltftValue = lftfRsp.value.magnitude
+                ltftValue = ltftRsp.value.magnitude
             except:
                 ltftValue = -1
             print("Long term fuel trim: " + str(ltftValue))
@@ -243,18 +248,17 @@ if __name__ == '__main__':
             fuelStatusRsp = obdConnection.query(fuelStatusCmd)
             try:
                 fuelStatusValue = str(fuelStatusRsp.value[0])
-                #fuelStatusValue = "hi"
             except:
                 fuelStatusValue = "Unable to communicate with vehicle"
-            if fuelStatusValue == None:
-                    fuelStatusValue = "Unavailable"
+            if fuelStatusValue is None:
+                fuelStatusValue = "Unavailable"
             print("Fuel System Status: " + str(fuelStatusValue))
-            
+
             acc = False
             if speedValue > -1:
                 acc = True
-            
-            #Add to local database
+
+            # Add to local database
             print("Begin to add data record to local database")
 
             cursor.execute('''INSERT INTO car_data(
@@ -280,36 +284,37 @@ if __name__ == '__main__':
                                                     obd_dtc_count,
                                                     obd_dtc_info,
                                                     obd_engine_runtime,
-                                                    obd_fuel_status)
-                  VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''', (
-                                                    
-                                                    now,                    # row[1]
-                                                    acc,                    # row[2]
-                                                    voltageValue,           # row[3]
-                                                    latitude,               # row[4]
-                                                    longitude,              # row[5]
-                                                    altitude,               # row[6]
-                                                    speed,                  # row[7]
-                                                    speedValue,             # row[8]
-                                                    distanceClrValue,       # row[9]
-                                                    coolantTempValue,       # row[10]
-                                                    relThrottlePosValue,    # row[11]
-                                                    ambientAirTempValue,    # row[12]
-                                                    ltftValue,              # row[13]
-                                                    stftValue,              # row[14]
-                                                    intakeTempValue,        # row[15]
-                                                    intakePressValue,       # row[16]
-                                                    engineLoadValue,        # row[17]
-                                                    rpmValue,               # row[18]
-                                                    milValue,               # row[19]
-                                                    dtcCountValue,          # row[20]
-                                                    dtcText,                # row[21]
-                                                    runTimeValue,           # row[22]
-                                                    fuelStatusValue))       # row[23]
+                                                    obd_fuel_status,
+                                                    software_version)
+                  VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''', (
+
+                now,  # row[1]
+                acc,  # row[2]
+                voltageValue,  # row[3]
+                latitude,  # row[4]
+                longitude,  # row[5]
+                altitude,  # row[6]
+                speed,  # row[7]
+                speedValue,  # row[8]
+                distanceClrValue,  # row[9]
+                coolantTempValue,  # row[10]
+                relThrottlePosValue,  # row[11]
+                ambientAirTempValue,  # row[12]
+                ltftValue,  # row[13]
+                stftValue,  # row[14]
+                intakeTempValue,  # row[15]
+                intakePressValue,  # row[16]
+                engineLoadValue,  # row[17]
+                rpmValue,  # row[18]
+                milValue,  # row[19]
+                dtcCountValue,  # row[20]
+                dtcText,  # row[21]
+                runTimeValue,  # row[22]
+                fuelStatusValue,  # row[23]
+                softwareVersion))  # row[24]
             db.commit()
 
-
-            #Try to upload local database to remote database
+            # Try to upload local database to remote database
             print("Begin uploading local database to remote database")
 
             cursor.execute('''SELECT * FROM car_data''')
@@ -339,27 +344,27 @@ if __name__ == '__main__':
                        + "obd_dtc_count=" + str(row[20]) + "&"
                        + "obd_dtc_info=" + str(row[21]) + "&"
                        + "obd_engine_runtime=" + str(row[22]) + "&"
-                       + "obd_fuel_status=" + str(row[23]))
+                       + "obd_fuel_status=" + str(row[23]) + "&"
+                       + "software_version=" + str(row[24]))
 
                 print("URL formed as: " + url)
 
-                #make http request using URL and capture the HTTP status code
+                # make http request using URL and capture the HTTP status code
                 r = requests.get(url)
                 print("Status Code: " + str(r.status_code))
 
-                #if successful, remove the row from the local database
+                # if successful, remove the row from the local database
                 if str(r.status_code).startswith('2'):
                     print("Upload Success!")
-                    cursor.execute('''DELETE FROM car_data WHERE id = ? ''',(row[0],))
+                    cursor.execute('''DELETE FROM car_data WHERE id = ? ''', (row[0],))
                     db.commit()
 
-            
-            #Pause for a few seconds before repeating
-            time.sleep(5) #set to whatever
- 
-    except (KeyboardInterrupt, SystemExit): #when you press ctrl+c
+            # Pause for a few seconds before repeating
+            time.sleep(5)  # set to whatever
+
+    except (KeyboardInterrupt, SystemExit):  # when you press ctrl+c
         print "\nKilling Thread..."
         db.close()
         gpsp.running = False
-        gpsp.join() # wait for the thread to finish what it's doing
+        gpsp.join()  # wait for the thread to finish what it's doing
         print "Done.\nExiting."
