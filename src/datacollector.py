@@ -3,6 +3,7 @@ from gps import *
 from time import *
 from pytz import timezone
 from datetime import datetime
+from config import *
 import time
 import threading
 import obd
@@ -10,14 +11,11 @@ import math
 import sqlite3
 import requests
 
-softwareVersion = 1.0
+softwareVersion = 1.1
 
 gpsd = None
 obdConnection = obd.OBD("/dev/ttyUSB1")
 db = sqlite3.connect('/home/pi/PiCarWatchman/src/database')
-
-
-# Testing another change!
 
 
 class PiCarWatchmanGPS(threading.Thread):
@@ -321,7 +319,7 @@ if __name__ == '__main__':
             allRecords = cursor.fetchall()
             for row in allRecords:
                 # row[0] returns the first column in the query (id), row[1] returns the 'now' column
-                url = ("http://www.mgt.co.nz/picarwatchman/newcardata.php?"
+                url = (databaseConnection+"?"
                        + "created=" + str(row[1]) + "&"
                        + "acc=" + str(row[2]) + "&"
                        + "voltage=" + str(row[3]) + "&"
