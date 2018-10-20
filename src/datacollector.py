@@ -1,9 +1,9 @@
 import os
 from gps import *
-from time import *
 from pytz import timezone
 from datetime import datetime
 from config import *
+from obdData import *
 import time
 import threading
 import obd
@@ -11,7 +11,7 @@ import math
 import sqlite3
 import requests
 
-softwareVersion = 1.1
+softwareVersion = 1.12
 
 gpsd = None
 obdConnection = obd.OBD("/dev/ttyUSB1")
@@ -68,8 +68,12 @@ if __name__ == '__main__':
     db.commit()
 
     gpsp = PiCarWatchmanGPS()  # create the GPS thread
+    obdDataWatcher = ObdDataWatcher(obdConnection)  # create the OBD data thread
+
     try:
         gpsp.start()  # start the GPS thread
+        obdDataWatcher.start()  # start the OBD data thread
+
         while True:
             os.system('clear')
 
@@ -124,136 +128,27 @@ if __name__ == '__main__':
             # except:
             #    voltageValue = -1
             voltageValue = -1
+
             print("Voltage: " + str(voltageValue))
-
-            speedCmd = obd.commands.SPEED
-            speedRsp = obdConnection.query(speedCmd)
-            try:
-                speedValue = speedRsp.value.magnitude
-            except:
-                speedValue = -1
-            print("Speed: " + str(speedValue))
-
-            distanceClrCmd = obd.commands.DISTANCE_SINCE_DTC_CLEAR
-            distanceClrRsp = obdConnection.query(distanceClrCmd)
-            try:
-                distanceClrValue = distanceClrRsp.value.magnitude
-            except:
-                distanceClrValue = -1
-            print("Distance since DTCs cleared: " + str(distanceClrValue))
-
-            coolantTempCmd = obd.commands.COOLANT_TEMP
-            coolantTempRsp = obdConnection.query(coolantTempCmd)
-            try:
-                coolantTempValue = coolantTempRsp.value.magnitude
-            except:
-                coolantTempValue = -1
-            print("Coolant Temperature: " + str(coolantTempValue))
-
-            relThrottlePosCmd = obd.commands.RELATIVE_THROTTLE_POS
-            relThrottlePosRsp = obdConnection.query(relThrottlePosCmd)
-            try:
-                relThrottlePosValue = relThrottlePosRsp.value.magnitude
-            except:
-                relThrottlePosValue = -1
-            print("Relative Throttle Position: " + str(relThrottlePosValue))
-
-            ambientAirTempCmd = obd.commands.AMBIANT_AIR_TEMP
-            ambientAirTempRsp = obdConnection.query(ambientAirTempCmd)
-            try:
-                ambientAirTempValue = ambientAirTempRsp.value.magnitude
-            except:
-                ambientAirTempValue = -1
-            print("Ambient Air Temperature: " + str(ambientAirTempValue))
-
-            ltftCmd = obd.commands.LONG_FUEL_TRIM_1
-            ltftRsp = obdConnection.query(ltftCmd)
-            try:
-                ltftValue = ltftRsp.value.magnitude
-            except:
-                ltftValue = -1
-            print("Long term fuel trim: " + str(ltftValue))
-
-            stftCmd = obd.commands.SHORT_FUEL_TRIM_1
-            stftRsp = obdConnection.query(stftCmd)
-            try:
-                stftValue = stftRsp.value.magnitude
-            except:
-                stftValue = -1
-            print("Short term fuel trim: " + str(stftValue))
-
-            intakeTempCmd = obd.commands.INTAKE_TEMP
-            intakeTempRsp = obdConnection.query(intakeTempCmd)
-            try:
-                intakeTempValue = intakeTempRsp.value.magnitude
-            except:
-                intakeTempValue = -1
-            print("Intake temperature: " + str(intakeTempValue))
-
-            intakePressCmd = obd.commands.INTAKE_PRESSURE
-            intakePressRsp = obdConnection.query(intakePressCmd)
-            try:
-                intakePressValue = intakePressRsp.value.magnitude
-            except:
-                intakePressValue = -1
-            print("Intake pressure: " + str(intakePressValue))
-
-            engineLoadCmd = obd.commands.ENGINE_LOAD
-            engineLoadRsp = obdConnection.query(engineLoadCmd)
-            try:
-                engineLoadValue = engineLoadRsp.value.magnitude
-            except:
-                engineLoadValue = -1
-            print("Engine load: " + str(engineLoadValue))
-
-            rpmCmd = obd.commands.RPM
-            rpmRsp = obdConnection.query(rpmCmd)
-            try:
-                rpmValue = rpmRsp.value.magnitude
-            except:
-                rpmValue = -1
-            print("RPM: " + str(rpmValue))
-
-            statusCmd = obd.commands.STATUS
-            statusRsp = obdConnection.query(statusCmd)
-            try:
-                milValue = statusRsp.value.MIL
-                dtcCountValue = statusRsp.value.DTC_count
-            except:
-                milValue = -1
-                dtcCountValue = -1
-            print("MIL Iluminated: " + str(milValue))
-            print("Stored DTCs: " + str(dtcCountValue))
-
-            getDtcCmd = obd.commands.GET_DTC
-            getDtcRsp = obdConnection.query(getDtcCmd)
-            try:
-                dtcList = getDtcRsp.value
-                dtcText = ','.join(map(str, dtcList))
-            except:
-                dtcText = "Unable to communicate with vehicle"
-            print("Summary of DTCs: " + str(dtcText))
-
-            runTimeCmd = obd.commands.RUN_TIME
-            runTimeRsp = obdConnection.query(runTimeCmd)
-            try:
-                runTimeValue = runTimeRsp.value.magnitude
-            except:
-                runTimeValue = -1
-            print("Runtime: " + str(runTimeValue))
-
-            fuelStatusCmd = obd.commands.FUEL_STATUS
-            fuelStatusRsp = obdConnection.query(fuelStatusCmd)
-            try:
-                fuelStatusValue = str(fuelStatusRsp.value[0])
-            except:
-                fuelStatusValue = "Unable to communicate with vehicle"
-            if fuelStatusValue is None:
-                fuelStatusValue = "Unavailable"
-            print("Fuel System Status: " + str(fuelStatusValue))
+            print("Speed: " + str(obdDataWatcher.speedValue))
+            print("Distance since DTCs cleared: " + str(obdDataWatcher.distanceClrValue))
+            print("Coolant Temperature: " + str(obdDataWatcher.coolantTempValue))
+            print("Relative Throttle Position: " + str(obdDataWatcher.relThrottlePosValue))
+            print("Ambient Air Temperature: " + str(obdDataWatcher.ambientAirTempValue))
+            print("Long term fuel trim: " + str(obdDataWatcher.ltftValue))
+            print("Short term fuel trim: " + str(obdDataWatcher.stftValue))
+            print("Intake temperature: " + str(obdDataWatcher.intakeTempValue))
+            print("Intake pressure: " + str(obdDataWatcher.intakePressValue))
+            print("Engine load: " + str(obdDataWatcher.engineLoadValue))
+            print("RPM: " + str(obdDataWatcher.rpmValue))
+            print("MIL Iluminated: " + str(obdDataWatcher.milValue))
+            print("Stored DTCs: " + str(obdDataWatcher.dtcCountValue))
+            print("Summary of DTCs: " + str(obdDataWatcher.dtcText))
+            print("Runtime: " + str(obdDataWatcher.runTimeValue))
+            print("Fuel System Status: " + str(obdDataWatcher.fuelStatusValue))
 
             acc = False
-            if speedValue > -1:
+            if obdDataWatcher.speedValue > -1:
                 acc = True
 
             # Add to local database
@@ -293,22 +188,22 @@ if __name__ == '__main__':
                 longitude,  # row[5]
                 altitude,  # row[6]
                 speed,  # row[7]
-                speedValue,  # row[8]
-                distanceClrValue,  # row[9]
-                coolantTempValue,  # row[10]
-                relThrottlePosValue,  # row[11]
-                ambientAirTempValue,  # row[12]
-                ltftValue,  # row[13]
-                stftValue,  # row[14]
-                intakeTempValue,  # row[15]
-                intakePressValue,  # row[16]
-                engineLoadValue,  # row[17]
-                rpmValue,  # row[18]
-                milValue,  # row[19]
-                dtcCountValue,  # row[20]
-                dtcText,  # row[21]
-                runTimeValue,  # row[22]
-                fuelStatusValue,  # row[23]
+                obdDataWatcher.speedValue,  # row[8]
+                obdDataWatcher.distanceClrValue,  # row[9]
+                obdDataWatcher.coolantTempValue,  # row[10]
+                obdDataWatcher.relThrottlePosValue,  # row[11]
+                obdDataWatcher.ambientAirTempValue,  # row[12]
+                obdDataWatcher.ltftValue,  # row[13]
+                obdDataWatcher.stftValue,  # row[14]
+                obdDataWatcher.intakeTempValue,  # row[15]
+                obdDataWatcher.intakePressValue,  # row[16]
+                obdDataWatcher.engineLoadValue,  # row[17]
+                obdDataWatcher.rpmValue,  # row[18]
+                obdDataWatcher.milValue,  # row[19]
+                obdDataWatcher.dtcCountValue,  # row[20]
+                obdDataWatcher.dtcText,  # row[21]
+                obdDataWatcher.runTimeValue,  # row[22]
+                obdDataWatcher.fuelStatusValue,  # row[23]
                 softwareVersion))  # row[24]
             db.commit()
 
