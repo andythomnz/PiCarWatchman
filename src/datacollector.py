@@ -1,39 +1,28 @@
-import os
-# from gps import *
+# datacollector.py:
+
 from pytz import timezone
 from datetime import datetime
 from config import *
 from obdData import *
 from gpsData import *
+import os
 import time
-# import threading
 import obd
-# import math
 import sqlite3
 import requests
 
-softwareVersion = 1.13
+softwareVersion = 1.15
 
-# gpsd = None
 obdConnection = obd.OBD("/dev/ttyUSB1")
 db = sqlite3.connect('/home/pi/PiCarWatchman/src/database')
-
-
-# class PiCarWatchmanGPS(threading.Thread):
-#     def __init__(self):
-#         threading.Thread.__init__(self)
-#         global gpsd
-#         gpsd = gps(mode=WATCH_ENABLE)  # starting the stream of info
-#         self.current_value = None
-#         self.running = True
-#
-#     def run(self):
-#         global gpsd
-#         while gpsp.running:
-#             gpsd.next()  # this will continue to loop and grab EACH set of gpsd info to clear the buffer
+gpsDataWatcher = None
+obdDataWatcher = None
 
 
 if __name__ == '__main__':
+
+    global gpsDataWatcher
+    global obdDataWatcher
 
     # prepare the database
     cursor = db.cursor()
@@ -44,9 +33,15 @@ if __name__ == '__main__':
                       `acc` tinyint(1) DEFAULT NULL,
                       `voltage` double DEFAULT NULL,
                       `latitude` double DEFAULT NULL,
+                      `latitude_error` double DEFAULT NULL,
                       `longitude` double DEFAULT NULL,
+                      `longitude_error` double DEFAULT NULL,
                       `altitude` double DEFAULT NULL,
+                      `altitude_error` double DEFAULT NULL,
                       `speed` double DEFAULT NULL,
+                      `speed_error` double DEFAULT NULL,
+                      `heading` double DEFAULT NULL,
+                      `heading_error` double DEFAULT NULL,
                       `obd_speed` double DEFAULT NULL,
                       `obd_dtc_reset_dist` int(11) DEFAULT NULL,
                       `obd_coolant_temp` int(11) DEFAULT NULL,
@@ -68,70 +63,40 @@ if __name__ == '__main__':
                        ''')
     db.commit()
 
-    # gpsp = PiCarWatchmanGPS()  # create the GPS thread
     gpsDataWatcher = GpsDataWatcher()   # create the GPS thread
     obdDataWatcher = ObdDataWatcher(obdConnection)  # create the OBD data thread
 
     try:
-        # gpsp.start()  # start the GPS thread
         gpsDataWatcher.start()  # start the GPS data thread
         obdDataWatcher.start()  # start the OBD data thread
 
         while True:
             os.system('clear')
 
+            print("Software Version: " + str(softwareVersion))
+
             florida = timezone('US/Eastern')
             now = datetime.now(florida).strftime('%Y-%m-%d %H:%M:%S')
             print("Current TimeStamp: " + str(now))
 
-            # print
-            # print ' GPS reading'
-            # print '----------------------------------------'
-            # print 'latitude    ' , gpsd.fix.latitude
-            # print 'longitude   ' , gpsd.fix.longitude
-            # print 'time utc    ' , gpsd.utc,' + ', gpsd.fix.time
-            # print 'altitude (m)' , gpsd.fix.altitude
-            # print 'eps         ' , gpsd.fix.eps
-            # print 'epx         ' , gpsd.fix.epx
-            # print 'epv         ' , gpsd.fix.epv
-            # print 'ept         ' , gpsd.fix.ept
-            # print 'speed (m/s) ' , gpsd.fix.speed
-            # print 'climb       ' , gpsd.fix.climb
-            # print 'track       ' , gpsd.fix.track
-            # print 'mode        ' , gpsd.fix.mode
-            # print
-            # print 'sats        ' , gpsd.satellites
-
-            # latitude = 123456789
-            # if gpsd.fix.latitude != 0:
-            #     latitude = gpsd.fix.latitude
             latitude = gpsDataWatcher.get_latitude()
             print("Latitude: " + str(latitude))
 
             latitude_error = gpsDataWatcher.get_latitude_error()
             print("Latitude Error: " + str(latitude_error) + " metres")
 
-            # longitude = 123456789
-            # if gpsd.fix.longitude != 0:
-            #     longitude = gpsd.fix.longitude
             longitude = gpsDataWatcher.get_longitude()
             print("Longitude: " + str(longitude))
 
             longitude_error = gpsDataWatcher.get_longitude_error()
             print("Longitude Error: " + str(longitude_error) + " metres")
 
-            # altitude = -123456789
-            # if not (math.isnan(gpsd.fix.altitude)):
-            #     altitude = gpsd.fix.altitude
             altitude = gpsDataWatcher.get_altitude()
             print("Altitude: " + str(altitude) + " metres")
 
             altitude_error = gpsDataWatcher.get_altitude_error()
             print("Altitude Error: " + str(altitude_error) + " metres")
 
-            # speed = -1
-            # if not (math.isnan(gpsd.fix.speed)):
-            #     speed = (gpsd.fix.speed * 18) / 5  # converting to km/h
             speed = gpsDataWatcher.get_speed()
             print("GPS Speed: " + str(speed) + " km/h")
 
@@ -190,9 +155,15 @@ if __name__ == '__main__':
                                                     acc, 
                                                     voltage, 
                                                     latitude,
+                                                    latitude_error,
                                                     longitude,
+                                                    longitude_error,
                                                     altitude,
+                                                    altitude_error,
                                                     speed,
+                                                    speed_error,
+                                                    heading,
+                                                    heading_error,
                                                     obd_speed,
                                                     obd_dtc_reset_dist,
                                                     obd_coolant_temp,
@@ -210,32 +181,39 @@ if __name__ == '__main__':
                                                     obd_engine_runtime,
                                                     obd_fuel_status,
                                                     software_version)
-                  VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''', (
+                  VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''', (
 
                 now,  # row[1]
                 acc,  # row[2]
                 voltageValue,  # row[3]
                 latitude,  # row[4]
-                longitude,  # row[5]
-                altitude,  # row[6]
-                speed,  # row[7]
-                obdDataWatcher.speedValue,  # row[8]
-                obdDataWatcher.distanceClrValue,  # row[9]
-                obdDataWatcher.coolantTempValue,  # row[10]
-                obdDataWatcher.relThrottlePosValue,  # row[11]
-                obdDataWatcher.ambientAirTempValue,  # row[12]
-                obdDataWatcher.ltftValue,  # row[13]
-                obdDataWatcher.stftValue,  # row[14]
-                obdDataWatcher.intakeTempValue,  # row[15]
-                obdDataWatcher.intakePressValue,  # row[16]
-                obdDataWatcher.engineLoadValue,  # row[17]
-                obdDataWatcher.rpmValue,  # row[18]
-                obdDataWatcher.milValue,  # row[19]
-                obdDataWatcher.dtcCountValue,  # row[20]
-                obdDataWatcher.dtcText,  # row[21]
-                obdDataWatcher.runTimeValue,  # row[22]
-                obdDataWatcher.fuelStatusValue,  # row[23]
-                softwareVersion))  # row[24]
+                latitude_error,   # row[5]
+                longitude,  # row[6]
+                longitude_error,  # row[7]
+                altitude,  # row[8]
+                altitude_error,  # row[9]
+                speed,  # row[10]
+                speed_error,  # row[11]
+                heading,  # row[12]
+                heading_error,  # row[13]
+                obdDataWatcher.speedValue,  # row[14]
+                obdDataWatcher.distanceClrValue, # row[15]
+                obdDataWatcher.coolantTempValue,   # row[16]
+                obdDataWatcher.relThrottlePosValue,  # row[17]
+                obdDataWatcher.ambientAirTempValue,  # row[18]
+                obdDataWatcher.ltftValue,  # row[19]
+                obdDataWatcher.stftValue,  # row[20]
+                obdDataWatcher.intakeTempValue,  # row[21]
+                obdDataWatcher.intakePressValue,  # row[22]
+                obdDataWatcher.engineLoadValue,   # row[23]
+                obdDataWatcher.rpmValue,  # row[24]
+                obdDataWatcher.milValue,  # row[25]
+                obdDataWatcher.dtcCountValue,  # row[26]
+                obdDataWatcher.dtcText,  # row[27]
+                obdDataWatcher.runTimeValue,  # row[28]
+                obdDataWatcher.fuelStatusValue,  # row[29]
+                softwareVersion  # row[30]
+            ))
             db.commit()
 
             # Try to upload local database to remote database
@@ -250,26 +228,32 @@ if __name__ == '__main__':
                        + "acc=" + str(row[2]) + "&"
                        + "voltage=" + str(row[3]) + "&"
                        + "latitude=" + str(row[4]) + "&"
-                       + "longitude=" + str(row[5]) + "&"
-                       + "altitude=" + str(row[6]) + "&"
-                       + "speed=" + str(row[7]) + "&"
-                       + "obd_speed=" + str(row[8]) + "&"
-                       + "obd_dtc_reset_dist=" + str(row[9]) + "&"
-                       + "obd_coolant_temp=" + str(row[10]) + "&"
-                       + "obd_rel_throttle_pos=" + str(row[11]) + "&"
-                       + "obd_ambient_air_temp=" + str(row[12]) + "&"
-                       + "obd_ltft=" + str(row[13]) + "&"
-                       + "obd_stft=" + str(row[14]) + "&"
-                       + "obd_intake_air_temp=" + str(row[15]) + "&"
-                       + "obd_intake_man_pressure=" + str(row[16]) + "&"
-                       + "obd_engine_load=" + str(row[17]) + "&"
-                       + "obd_rpm=" + str(row[18]) + "&"
-                       + "obd_MIL=" + str(row[19]) + "&"
-                       + "obd_dtc_count=" + str(row[20]) + "&"
-                       + "obd_dtc_info=" + str(row[21]) + "&"
-                       + "obd_engine_runtime=" + str(row[22]) + "&"
-                       + "obd_fuel_status=" + str(row[23]) + "&"
-                       + "software_version=" + str(row[24]))
+                       + "latitude_error=" + str(row[5]) + "&"
+                       + "longitude=" + str(row[6]) + "&"
+                       + "longitude_error=" + str(row[7]) + "&"
+                       + "altitude=" + str(row[8]) + "&"
+                       + "altitude_error=" + str(row[9]) + "&"
+                       + "speed=" + str(row[10]) + "&"
+                       + "speed_error=" + str(row[11]) + "&"
+                       + "heading=" + str(row[12]) + "&"
+                       + "heading_error=" + str(row[13]) + "&"
+                       + "obd_speed=" + str(row[14]) + "&"
+                       + "obd_dtc_reset_dist=" + str(row[15]) + "&"
+                       + "obd_coolant_temp=" + str(row[16]) + "&"
+                       + "obd_rel_throttle_pos=" + str(row[17]) + "&"
+                       + "obd_ambient_air_temp=" + str(row[18]) + "&"
+                       + "obd_ltft=" + str(row[19]) + "&"
+                       + "obd_stft=" + str(row[20]) + "&"
+                       + "obd_intake_air_temp=" + str(row[21]) + "&"
+                       + "obd_intake_man_pressure=" + str(row[22]) + "&"
+                       + "obd_engine_load=" + str(row[23]) + "&"
+                       + "obd_rpm=" + str(row[24]) + "&"
+                       + "obd_MIL=" + str(row[25]) + "&"
+                       + "obd_dtc_count=" + str(row[26]) + "&"
+                       + "obd_dtc_info=" + str(row[27]) + "&"
+                       + "obd_engine_runtime=" + str(row[28]) + "&"
+                       + "obd_fuel_status=" + str(row[29]) + "&"
+                       + "software_version=" + str(row[30]))
 
                 print("URL formed as: " + url)
 
@@ -287,8 +271,12 @@ if __name__ == '__main__':
             time.sleep(5)  # set to whatever
 
     except (KeyboardInterrupt, SystemExit):  # when you press ctrl+c
-        print "\nKilling Thread..."
+
+        print "\nKilling Threads..."
         db.close()
-        gpsp.running = False
-        gpsp.join()  # wait for the thread to finish what it's doing
+        gpsDataWatcher.running = False
+        gpsDataWatcher.join()   # wait for GPS thread to finish
+        obdDataWatcher.running = False
+        obdDataWatcher.join()   # wait for OBD thread to finish
+
         print "Done.\nExiting."

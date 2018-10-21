@@ -6,6 +6,7 @@ import time
 
 
 class ObdDataWatcher(threading.Thread):
+
     obd.logger.removeHandler(obd.console_handler)  # silences console output from OBD library
 
     speedValue = -1
