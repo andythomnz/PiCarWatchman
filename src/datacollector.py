@@ -1,35 +1,36 @@
 import os
-from gps import *
+# from gps import *
 from pytz import timezone
 from datetime import datetime
 from config import *
 from obdData import *
+from gpsData import *
 import time
-import threading
+# import threading
 import obd
-import math
+# import math
 import sqlite3
 import requests
 
-softwareVersion = 1.12
+softwareVersion = 1.13
 
-gpsd = None
+# gpsd = None
 obdConnection = obd.OBD("/dev/ttyUSB1")
 db = sqlite3.connect('/home/pi/PiCarWatchman/src/database')
 
 
-class PiCarWatchmanGPS(threading.Thread):
-    def __init__(self):
-        threading.Thread.__init__(self)
-        global gpsd
-        gpsd = gps(mode=WATCH_ENABLE)  # starting the stream of info
-        self.current_value = None
-        self.running = True
-
-    def run(self):
-        global gpsd
-        while gpsp.running:
-            gpsd.next()  # this will continue to loop and grab EACH set of gpsd info to clear the buffer
+# class PiCarWatchmanGPS(threading.Thread):
+#     def __init__(self):
+#         threading.Thread.__init__(self)
+#         global gpsd
+#         gpsd = gps(mode=WATCH_ENABLE)  # starting the stream of info
+#         self.current_value = None
+#         self.running = True
+#
+#     def run(self):
+#         global gpsd
+#         while gpsp.running:
+#             gpsd.next()  # this will continue to loop and grab EACH set of gpsd info to clear the buffer
 
 
 if __name__ == '__main__':
@@ -67,11 +68,13 @@ if __name__ == '__main__':
                        ''')
     db.commit()
 
-    gpsp = PiCarWatchmanGPS()  # create the GPS thread
+    # gpsp = PiCarWatchmanGPS()  # create the GPS thread
+    gpsDataWatcher = GpsDataWatcher()   # create the GPS thread
     obdDataWatcher = ObdDataWatcher(obdConnection)  # create the OBD data thread
 
     try:
-        gpsp.start()  # start the GPS thread
+        # gpsp.start()  # start the GPS thread
+        gpsDataWatcher.start()  # start the GPS data thread
         obdDataWatcher.start()  # start the OBD data thread
 
         while True:
@@ -99,25 +102,53 @@ if __name__ == '__main__':
             # print
             # print 'sats        ' , gpsd.satellites
 
-            latitude = 123456789
-            if gpsd.fix.latitude != 0:
-                latitude = gpsd.fix.latitude
+            # latitude = 123456789
+            # if gpsd.fix.latitude != 0:
+            #     latitude = gpsd.fix.latitude
+            latitude = gpsDataWatcher.get_latitude()
             print("Latitude: " + str(latitude))
 
-            longitude = 123456789
-            if gpsd.fix.longitude != 0:
-                longitude = gpsd.fix.longitude
+            latitude_error = gpsDataWatcher.get_latitude_error()
+            print("Latitude Error: " + str(latitude_error) + " metres")
+
+            # longitude = 123456789
+            # if gpsd.fix.longitude != 0:
+            #     longitude = gpsd.fix.longitude
+            longitude = gpsDataWatcher.get_longitude()
             print("Longitude: " + str(longitude))
 
-            altitude = -123456789
-            if not (math.isnan(gpsd.fix.altitude)):
-                altitude = gpsd.fix.altitude
-            print("Altitude: " + str(altitude))
+            longitude_error = gpsDataWatcher.get_longitude_error()
+            print("Longitude Error: " + str(longitude_error) + " metres")
 
-            speed = -1
-            if not (math.isnan(gpsd.fix.speed)):
-                speed = (gpsd.fix.speed * 18) / 5  # converting to km/h
-            print("GPS Speed: " + str(speed))
+            # altitude = -123456789
+            # if not (math.isnan(gpsd.fix.altitude)):
+            #     altitude = gpsd.fix.altitude
+            altitude = gpsDataWatcher.get_altitude()
+            print("Altitude: " + str(altitude) + " metres")
+
+            altitude_error = gpsDataWatcher.get_altitude_error()
+            print("Altitude Error: " + str(altitude_error) + " metres")
+
+            # speed = -1
+            # if not (math.isnan(gpsd.fix.speed)):
+            #     speed = (gpsd.fix.speed * 18) / 5  # converting to km/h
+            speed = gpsDataWatcher.get_speed()
+            print("GPS Speed: " + str(speed) + " km/h")
+
+            speed_error = gpsDataWatcher.get_speed_error()
+            print("GPS Speed Error: " + str(speed_error) + " km/h")
+
+            heading = gpsDataWatcher.get_heading()
+            print("Heading: " + str(heading) + " degrees")
+
+            heading_error = gpsDataWatcher.get_heading_error()
+            print("Heading Error: " + str(heading_error) + " degrees")
+
+            utc = gpsDataWatcher.get_utc()
+            print("GPS UTC: " + str(utc))
+
+            gps_timestamp = gpsDataWatcher.get_time()
+            print("GPS Timestamp: " + str(gps_timestamp))
 
             # OBD Data
 

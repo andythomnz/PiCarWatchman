@@ -1,4 +1,4 @@
-# config.py:
+# obdData.py:
 
 import obd
 import threading
