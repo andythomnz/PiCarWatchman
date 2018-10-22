@@ -2,16 +2,20 @@
 
 import sqlite3
 import requests
+import threading
 from config import *
 
-db = sqlite3.connect('/home/pi/PiCarWatchman/src/database')
+db = sqlite3.connect(databasePath)
 cursor = db.cursor()
 
 
-class DataManager:
+class DataManager(threading.Thread):
 
     def __init__(self):
         global cursor
+        threading.Thread.__init__(self)
+        self.current_value = None
+        self.running = True
         # prepare the database
         cursor.execute('''
                             CREATE TABLE IF NOT EXISTS `car_data` (
@@ -49,6 +53,20 @@ class DataManager:
                             )
                                ''')
         db.commit()
+
+    def run(self):
+        while self.running:
+            # upload data
+            new_db = sqlite3.connect(databasePath)
+            new_cursor = new_db.cursor()
+            new_cursor.execute('''SELECT * FROM car_data ORDER BY created DESC LIMIT 5''')
+            all_records = new_cursor.fetchall()
+            if all_records:  # if all_records is not empty
+                print("Beginning to upload " + str(len(all_records)) + " data rows...")
+                # print("The data rows are: " + str(all_records))
+                self.upload(all_records, new_cursor, new_db)
+                print("Upload attempts finished")
+
 
     def add(self,
             now,
@@ -149,10 +167,17 @@ class DataManager:
         ))
         db.commit()
 
-    def upload(self):
+    def get_num_cached(self):
         global cursor
-        cursor.execute('''SELECT * FROM car_data''')
-        allRecords = cursor.fetchall()
+        cursor.execute('''SELECT Count(*) FROM car_data''')
+        num_cached = cursor.fetchone()
+        num_cached = num_cached[0]
+        return num_cached
+
+    def upload(self, allRecords, new_cursor, new_db):
+        # new_cursor = db.cursor()
+        # new_cursor.execute('''SELECT * FROM car_data''')
+        # allRecords = new_cursor.fetchall()
         for row in allRecords:
             # row[0] returns the first column in the query (id), row[1] returns the 'now' column
             url = (databaseConnection + "?"
@@ -187,7 +212,7 @@ class DataManager:
                    + "obd_fuel_status=" + str(row[29]) + "&"
                    + "software_version=" + str(row[30]))
 
-            print("URL formed as: " + url)
+            # print("URL formed as: " + url)
 
             # make http request using URL and capture the HTTP status code
             r = requests.get(url)
@@ -195,6 +220,11 @@ class DataManager:
 
             # if successful, remove the row from the local database
             if str(r.status_code).startswith('2'):
-                print("Upload Success!")
-                cursor.execute('''DELETE FROM car_data WHERE id = ? ''', (row[0],))
-                db.commit()
+                # print("Upload Success!")
+                new_cursor.execute('''DELETE FROM car_data WHERE id = ? ''', (row[0],))
+                new_db.commit()
+
+            # if not successful, don't try uploading the rest of the list
+            if not(str(r.status_code).startswith('2')):
+                print("Error uploading to database!")
+                break

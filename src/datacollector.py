@@ -10,7 +10,7 @@ import os
 import time
 import obd
 
-softwareVersion = 1.17
+softwareVersion = 1.21
 
 obdConnection = obd.OBD("/dev/ttyUSB1")
 
@@ -28,11 +28,14 @@ if __name__ == '__main__':
     try:
         gpsDataWatcher.start()  # start the GPS data thread
         obdDataWatcher.start()  # start the OBD data thread
+        dataManager.start()     # start the data manager thread
 
         while True:
             os.system('clear')
 
             print("Software Version: " + str(softwareVersion))
+
+            print("Data Rows Awaiting Upload: " + str(dataManager.get_num_cached()))
 
             florida = timezone('US/Eastern')
             now = datetime.now(florida).strftime('%Y-%m-%d %H:%M:%S')
@@ -143,11 +146,11 @@ if __name__ == '__main__':
             )
 
             # Try to upload local database to remote database
-            print("Begin uploading local database to remote database")
-            dataManager.upload()
+            # print("Begin uploading local database to remote database")
+            # dataManager.upload()
 
             # Pause for a few seconds before repeating
-            time.sleep(5)  # set to whatever
+            time.sleep(15)  # set to whatever
 
     except (KeyboardInterrupt, SystemExit):  # when you press ctrl+c
 
