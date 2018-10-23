@@ -5,17 +5,19 @@ from datetime import datetime
 from config import *
 from obdData import *
 from gpsData import *
+from modemData import *
 from dataManager import *
 import os
 import time
 import obd
 
-softwareVersion = 1.21
+softwareVersion = 1.25
 
 obdConnection = obd.OBD("/dev/ttyUSB1")
 
 gpsDataWatcher = GpsDataWatcher()   # create the GPS thread
 obdDataWatcher = ObdDataWatcher(obdConnection)  # create the OBD data thread
+modemDataWatcher = ModemDataWatcher()   # create the modem data thread
 dataManager = DataManager()     # instantiate the data manager
 
 
@@ -23,17 +25,21 @@ if __name__ == '__main__':
 
     global gpsDataWatcher
     global obdDataWatcher
+    global modemDataWatcher
     global dataManager
 
     try:
         gpsDataWatcher.start()  # start the GPS data thread
         obdDataWatcher.start()  # start the OBD data thread
+        modemDataWatcher.start()    # start the modem data thread
         dataManager.start()     # start the data manager thread
 
         while True:
             os.system('clear')
 
             print("Software Version: " + str(softwareVersion))
+
+            print("Received Signal Strength: " + str(modemDataWatcher.received_signal_strength))
 
             print("Data Rows Awaiting Upload: " + str(dataManager.get_num_cached()))
 
@@ -142,12 +148,9 @@ if __name__ == '__main__':
                 obdDataWatcher.dtcText,
                 obdDataWatcher.runTimeValue,
                 obdDataWatcher.fuelStatusValue,
-                softwareVersion
+                softwareVersion,
+                modemDataWatcher.received_signal_strength
             )
-
-            # Try to upload local database to remote database
-            # print("Begin uploading local database to remote database")
-            # dataManager.upload()
 
             # Pause for a few seconds before repeating
             time.sleep(15)  # set to whatever

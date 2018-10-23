@@ -27,9 +27,12 @@ for eachLine in list:
             ttyIndex = eachLine.find("ttyUSB")
             modem = eachLine[ttyIndex:]
 
+modemCommunicationPort = "ttyUSB" + str((int(modem[-1:]))+1)
+
 print("GPS is device: " + gps)
 print("OBD is device: " + obd)
 print("Modem is device: " + modem)
+print("Modem communication is device: " + modemCommunicationPort)
 
 if gps=="unknown" or obd=="unknown" or modem=="unknown":
     print("WARNING: One or more USB devices could not be detected. Expect unpredictable behaviour.")
@@ -104,6 +107,25 @@ for eachWvdialLine in oldConfig:   #copy contents of old file, but substitude th
 
 newConfig.close()
 oldConfig.close()
+
+#Set python config file to use modem+1 port
+print("Setting config.py to use modem+1 port...")
+pythonConfigFile = "/home/pi/PiCarWatchman/src/config.py"
+shutil.move(pythonConfigFile, pythonConfigFile+".bak") #backup the existing file
+
+newPythonConfig = open(pythonConfigFile, "w")
+oldPythonConfig = open(pythonConfigFile+".bak", "r")
+
+for eachPythonConfigLine in oldPythonConfig:   #copy contents of old file, but substitude the modem+1 port number
+    if eachPythonConfigLine.find("modemDevice") > -1:
+        newLine = "modemDevice = \"/dev/" + modemCommunicationPort + "\"\n"
+        print("Setting modem communication port to: " + "modemDevice = /dev/" + modemCommunicationPort + "\n")
+    else:
+        newLine = eachPythonConfigLine
+    newPythonConfig.write(newLine)
+
+newPythonConfig.close()
+oldPythonConfig.close()
 
 print("Launching wvdial again...")
 subprocess.check_output("sudo wvdial &> /dev/null", shell=True) #prints wvdial output in python terminal...

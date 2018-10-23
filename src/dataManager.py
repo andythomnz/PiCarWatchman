@@ -49,7 +49,8 @@ class DataManager(threading.Thread):
                               `obd_dtc_info` longtext,
                               `obd_engine_runtime` int(11) NOT NULL,
                               `obd_fuel_status` INTEGER,
-                              'software_version' double DEFAULT NULL
+                              `software_version` double DEFAULT NULL,
+                              `rssi` int(11) DEFAULT NULL
                             )
                                ''')
         db.commit()
@@ -98,7 +99,8 @@ class DataManager(threading.Thread):
             dtcText,
             runTimeValue,
             fuelStatusValue,
-            softwareVersion
+            softwareVersion,
+            rssi
             ):
         global cursor
         cursor.execute('''INSERT INTO car_data(
@@ -131,8 +133,9 @@ class DataManager(threading.Thread):
                                                             obd_dtc_info,
                                                             obd_engine_runtime,
                                                             obd_fuel_status,
-                                                            software_version)
-                          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''', (
+                                                            software_version,
+                                                            rssi)
+                          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''', (
 
             now,  # row[1]
             acc,  # row[2]
@@ -163,7 +166,8 @@ class DataManager(threading.Thread):
             dtcText,  # row[27]
             runTimeValue,  # row[28]
             fuelStatusValue,  # row[29]
-            softwareVersion  # row[30]
+            softwareVersion,  # row[30]
+            rssi    # row[31]
         ))
         db.commit()
 
@@ -210,7 +214,8 @@ class DataManager(threading.Thread):
                    + "obd_dtc_info=" + str(row[27]) + "&"
                    + "obd_engine_runtime=" + str(row[28]) + "&"
                    + "obd_fuel_status=" + str(row[29]) + "&"
-                   + "software_version=" + str(row[30]))
+                   + "software_version=" + str(row[30]) + "&"
+                   + "rssi=" + str(row[31]))
 
             # print("URL formed as: " + url)
 
